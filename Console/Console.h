@@ -17,22 +17,35 @@
 #define lightPurple 0xD
 #define lightYellow 0xE
 #define brightWhite 0xF
-#include <map>
+
+#define KB_ARROW_UP 296
+#define KB_ARROW_DOWN 304
+#define KB_ARROW_LEFT 299
+#define KB_ARROW_RIGHT 301
+#define KB_ENTER 13
+#define KB_RETURN 13
+#define KB_ESCAPE 27
 #include <string>
 #include <Windows.h>
-using namespace std;
 
 class Console
 {
 	public:
 		static void CreateNewConsole();
 		static void ChangeColor(int color);
+		static void ChangeColorB(int backgroudColor);
 		static void ChangeTitle(LPCSTR title);
-		
+		static void SetCursorPos(short x, short y);
+		static int ReadKey();
+		static void AsyncReadKey(int *input);
+		static void HideCursor(bool hideCursor);
+		static void HideScrollBars(bool hideScrollBars);
 	private:
 		static HANDLE hConsole;
+		static short currentColor;
+		static short currentColorB;
 };
-#endif // !CONSOLE_H
+#endif // CONSOLE_H
 
 
 

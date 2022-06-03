@@ -1,22 +1,60 @@
 #include "Console.h"
 #include <iostream>
+#include <conio.h>
 
-using namespace std;
 void Console::CreateNewConsole() {
 	AllocConsole();
 	FILE* out;
 	freopen_s(&out, "CONOUT$", "wb", stdout);
 	hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 	ChangeColor(brightWhite);
-	cout << " ----- Console started -----" << endl << endl;
+	std::cout << " ----- Console started -----" << std::endl << std::endl;
 }
 
 void Console::ChangeColor(int color) {
-	SetConsoleTextAttribute(hConsole, color);
+	currentColor = color;
+	SetConsoleTextAttribute(hConsole, currentColor + currentColorB);
+}
+
+void Console::ChangeColorB(int backgroudColor) {
+	currentColorB = backgroudColor * 16;
+	SetConsoleTextAttribute(hConsole, currentColor + currentColorB);
 }
 
 void Console::ChangeTitle(LPCSTR title) {
 	SetConsoleTitleA(title);
 }
 
+void Console::SetCursorPos(short x, short y) {
+	SetConsoleCursorPosition(hConsole, { x, y });
+}
+
+int Console::ReadKey() {
+	int keyValue = _getch();
+	if (keyValue == 224)
+		keyValue += _getch();
+	return keyValue;
+}
+
+void Console::AsyncReadKey(int* input) {
+	while (true)
+		*input = ReadKey();
+}
+
+void Console::HideCursor(bool hideCursor) {
+	CONSOLE_CURSOR_INFO cursorInfo;
+	GetConsoleCursorInfo(hConsole, &cursorInfo);
+	cursorInfo.bVisible = !hideCursor;
+	SetConsoleCursorInfo(hConsole, &cursorInfo);
+}
+
+void Console::HideScrollBars(bool hideScrollBars) {
+	if (hideScrollBars)
+		ShowScrollBar(GetConsoleWindow(), SB_BOTH, ESB_ENABLE_BOTH);
+	else
+		ShowScrollBar(GetConsoleWindow(), SB_BOTH, ESB_DISABLE_BOTH);
+}
+
 HANDLE Console::hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+short Console::currentColor = white;
+short Console::currentColorB = black;
