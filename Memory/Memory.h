@@ -1,8 +1,6 @@
 #pragma once
 #ifndef MEMORY_H
 #define MEMORY_H
-#include <string>
-#include <sstream>
 #include <vector>
 #include <Windows.h>
 using namespace std;
