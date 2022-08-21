@@ -2,18 +2,44 @@
 #ifndef CONSOLE_H
 #define CONSOLE_H
 
-#define BOX_DN_R char(201)	// ╔
-#define BOX_UP_R char(200)	// ╚
-#define BOX_DN_L char(187)	// ╗
-#define BOX_UP_L char(188)	// ╝
-#define BOX_VT char(186)	// ║
-#define BOX_HT char(205)	// ═
-#define LINE_DN_R char(218)	// ┌
-#define LINE_UP_R char(192)	// └
-#define LINE_DN_L char(191)	// ┐
-#define LINE_UP_L char(217)	// ┘
-#define LINE_VT char(179)	// │
-#define LINE_HT char(196)	// ─
+/*#ifdef UNICODE
+	#define BOX_DN_R u8"╔"	// ╔
+	#define BOX_UP_R u8"╚"	// ╚
+	#define BOX_DN_L u8"╗"	// ╗
+	#define BOX_UP_L u8"╝"	// ╝
+	#define BOX_VT u8"║"	// ║
+	#define BOX_HT u8"═"	// ═
+	#define LINE_DN_R u8"┌"	// ┌
+	#define LINE_UP_R u8"└"	// └
+	#define LINE_DN_L u8"┐"	// ┐
+	#define LINE_UP_L u8"┘"	// ┘
+	#define LINE_VT u8"│"	// │
+	#define LINE_HT u8"─"	// ─
+#else*/
+	#define BOX_DN_R char(201)	// ╔
+	#define BOX_UP_R char(200)	// ╚
+	#define BOX_DN_L char(187)	// ╗
+	#define BOX_UP_L char(188)	// ╝
+	#define BOX_VT char(186)	// ║
+	#define BOX_HT char(205)	// ═
+	#define BOX_3W_R char(204)	// ╠
+	#define BOX_3W_L char(185)	// ╣
+	#define BOX_3W_U char(202)	// ╩
+	#define BOX_3W_D char(203)	// ╦
+	#define BOX_4W char(206)	// ╬
+
+	#define LINE_DN_R char(218)	// ┌
+	#define LINE_UP_R char(192)	// └
+	#define LINE_DN_L char(191)	// ┐
+	#define LINE_UP_L char(217)	// ┘
+	#define LINE_VT char(179)	// │
+	#define LINE_HT char(196)	// ─
+	#define LINE_3W_R char(195)	// ├
+	#define LINE_3W_L char(180)	// ┤
+	#define LINE_3W_U char(193)	// ┴
+	#define LINE_3W_D char(194)	// ┬
+	#define LINE_4W char(197)	// ┼
+//#endif
 
 #define BLACK 0x0
 #define BLUE 0x1
@@ -81,11 +107,13 @@
 #define KB_ENTER 13
 #define KB_RETURN 13
 
+#include <tchar.h>
 #include <string>
 #include <Windows.h>
 
 class Console
 {
+	#ifdef _WIN32
 	public:
 		// Creates a new CMD window if its not created and redirects output to it (mostly for DLL injecting)
 		static void CreateNewConsole();
@@ -97,7 +125,7 @@ class Console
 		static void ChangeColorB(int backgroudColor);
 
 		// Changes a name of window
-		static void ChangeTitle(LPCSTR title);
+		static void ChangeTitle(LPCTSTR title);
 
 		// Sets a position where text will be outputted in CMD
 		static void SetCursorPos(short x, short y);
@@ -121,6 +149,7 @@ class Console
 		static HANDLE hConsole;
 		static short currentColor;
 		static short currentColorB;
+	#endif
 };
 #endif // CONSOLE_H
 

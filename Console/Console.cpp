@@ -21,8 +21,8 @@ void Console::ChangeColorB(int backgroudColor) {
 	SetConsoleTextAttribute(hConsole, currentColor + currentColorB);
 }
 
-void Console::ChangeTitle(LPCSTR title) {
-	SetConsoleTitleA(title);
+void Console::ChangeTitle(LPCTSTR title) {
+	SetConsoleTitle(title);
 }
 
 void Console::SetCursorPos(short x, short y) {
