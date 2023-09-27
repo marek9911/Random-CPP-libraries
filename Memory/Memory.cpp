@@ -9,19 +9,36 @@ uintptr_t Memory::GetBaseAddress() {
 	return baseAddress;
 }
 
-void Memory::HexWrite(uintptr_t pointerWithoutBase, const char* bytes, size_t size) {
+void Memory::HexWrite(uintptr_t pointerWithoutBase, const char* bytes, size_t size, bool addBaseAddress) {
 	#pragma warning(disable:6387)
-	uintptr_t ptr = GetBaseAddress() + pointerWithoutBase;
+	uintptr_t ptr = pointerWithoutBase;
+	if (addBaseAddress) {
+		ptr += GetBaseAddress();
+	}
 	size_t byteSize = size;
 	if (byteSize == 0) {
 		byteSize = strlen(bytes) + 1;
 	}
-	unsigned long OldProtection;
+	DWORD OldProtection;
 	VirtualProtect((LPVOID)(ptr), byteSize, PAGE_EXECUTE_READWRITE, &OldProtection);
 	memcpy((LPVOID)ptr, bytes, byteSize);
 	VirtualProtect((LPVOID)(ptr), byteSize, OldProtection, NULL);
 	#pragma warning(default:6387)
 }
+
+void Memory::Fill(uintptr_t pointerWithoutBase, uint8_t value, size_t size, bool addBaseAddress) {
+	#pragma warning(disable:6387)
+	uintptr_t ptr = pointerWithoutBase;
+	if (addBaseAddress) {
+		ptr += GetBaseAddress();
+	}
+	DWORD OldProtection;
+	VirtualProtect((LPVOID)(ptr), size, PAGE_EXECUTE_READWRITE, &OldProtection);
+	memset((LPVOID)ptr, value, size);
+	VirtualProtect((LPVOID)(ptr), size, OldProtection, NULL);
+	#pragma warning(default:6387)
+}
+
 
 void Memory::hexDump(void* ptr, size_t size) {
 	unsigned char* chptr = (unsigned char*)ptr;

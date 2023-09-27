@@ -11,6 +11,10 @@
 #include "Console.h"
 #endif
 
+/*#ifndef _DLL
+#error "This library only support DLL projects that are used for injecting"
+#endif*/
+
 // Uncomment macro under this line to print debug information (if enabled) using wide characters
 //#define MEMORY_WIDE_OUTPUT
 #ifndef MEMORY_WIDE_OUTPUT
@@ -34,6 +38,12 @@ const unsigned long long msgTypes[4] = { 0x5D002B005B, 0x5D003D005B, 0x5D2194005
 #define MSG_OBJECT_CHANGE 1
 #define MSG_OBJECT_MOVE 2
 #define MSG_OBJECT_FAIL 3
+
+// Basically a offset pointer that is used to calculate runtime pointer address (base address is added later to this type)
+typedef uintptr_t base_offset;
+
+// Returns a pointer to TYPE with base address added
+#define OFFSET(_type, _offset) ((_type)(Memory::GetBaseAddress() + (_offset)))
 
 class Memory
 {
@@ -133,7 +143,10 @@ class Memory
 		static uintptr_t GetBaseAddress();
 
 		// Hex write to address that may have read only access
-		static void HexWrite(uintptr_t pointerWithoutBase, const char* bytes, size_t size = 0);
+		static void HexWrite(uintptr_t pointerWithoutBase, const char* bytes, size_t size = 0, bool addBaseAddress = true);
+
+		// Fills memory that may have read only access with specified value 
+		static void Fill(uintptr_t pointerWithoutBase, uint8_t value, size_t size, bool addBaseAddress = true);
 
 		// Prints hex dump of address
 		static void hexDump(void* ptr, size_t size);
