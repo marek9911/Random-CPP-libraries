@@ -1,84 +1,97 @@
-#if __has_include("Console/Console.h")
-#include "Console/Console.h"
-#endif
 #include "Memory.h"
+#include <Windows.h>
 #include <Psapi.h>
 #include <iostream>
 
-uintptr_t Memory::GetBaseAddress() {
-	return baseAddress;
-}
+#define HINIBBLE(x) ((((uint8_t)(x) >> 4) | 0xF0) ^ 0xF0)
+#define LONIBBLE(x) (((uint8_t)(x) | 0xF0) ^ 0xF0)
 
-void Memory::HexWrite(uintptr_t pointerWithoutBase, const char* bytes, size_t size, bool addBaseAddress) {
-	#pragma warning(disable:6387)
-	uintptr_t ptr = pointerWithoutBase;
-	if (addBaseAddress) {
-		ptr += GetBaseAddress();
+namespace memory
+{
+	RegionUnlocker::RegionUnlocker(void* region, size_t size) 
+	: pageInfo(UnlockRegion(region, size)) {}
+
+	RegionUnlocker::~RegionUnlocker() {
+		RestoreRegion(this->pageInfo);
 	}
-	size_t byteSize = size;
-	if (byteSize == 0) {
-		byteSize = strlen(bytes) + 1;
+
+	PageInfo UnlockRegion(void* region, size_t size) {
+		PageInfo pageProtection { region, size };
+		VirtualProtect(region, size, PAGE_EXECUTE_READWRITE, &pageProtection.pageProtection);
+		return pageProtection;
 	}
-	DWORD OldProtection;
-	VirtualProtect((LPVOID)(ptr), byteSize, PAGE_EXECUTE_READWRITE, &OldProtection);
-	memcpy((LPVOID)ptr, bytes, byteSize);
-	VirtualProtect((LPVOID)(ptr), byteSize, OldProtection, NULL);
-	#pragma warning(default:6387)
-}
 
-void Memory::Fill(uintptr_t pointerWithoutBase, uint8_t value, size_t size, bool addBaseAddress) {
-	#pragma warning(disable:6387)
-	uintptr_t ptr = pointerWithoutBase;
-	if (addBaseAddress) {
-		ptr += GetBaseAddress();
+	void RestoreRegion(const PageInfo& pageInfo) {
+		DWORD pageProtection;
+		VirtualProtect(pageInfo.region, pageInfo.size, pageInfo.pageProtection, &pageProtection);
 	}
-	DWORD OldProtection;
-	VirtualProtect((LPVOID)(ptr), size, PAGE_EXECUTE_READWRITE, &OldProtection);
-	memset((LPVOID)ptr, value, size);
-	VirtualProtect((LPVOID)(ptr), size, OldProtection, NULL);
-	#pragma warning(default:6387)
-}
 
+	void* GetBaseAddress() {
+		static void* const baseAddress = GetModuleHandleW(nullptr);
+		return baseAddress;
+	}
 
-void Memory::hexDump(void* ptr, size_t size) {
-	unsigned char* chptr = (unsigned char*)ptr;
-	__tcout << std::hex << std::uppercase;
-	for (size_t i = 0; i < size; i++) {
-		if (*chptr < 0x10) {
-			__tcout << __tstr("0");
+	void* Write(void* destination, const void* source, size_t size) {
+		if (size == 0) {
+			return destination;
 		}
-		__tcout << (int)*(chptr++) << __tstr(" ");
+		RegionUnlocker reg(destination, size);
+		memcpy(destination, source, size);
+		return reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(destination) + size);
 	}
-	__tcout << std::dec << std::endl;
-}
-
-bool Memory::CheckReadableAddress(uintptr_t address) {
-	MEMORY_BASIC_INFORMATION mbi;
-	VirtualQuery((LPCVOID)address, &mbi, sizeof(mbi));
-	if (mbi.Protect > 0x01) {
-		return false;
+	
+	void* Write(void* destination, const std::string& string) {
+		return Write(destination, string.c_str(), string.size() * sizeof(char) + sizeof(char));
 	}
-	return true;
-}
 
-bool Memory::CheckWritableAddress(uintptr_t address) {
-	MEMORY_BASIC_INFORMATION mbi;
-	VirtualQuery((LPCVOID)address, &mbi, sizeof(mbi));
-	if (mbi.Protect == 0x04 || mbi.Protect == 0x08 || mbi.Protect == 0x40 || mbi.Protect == 0x80) {
-		return false;
+	void* Write(void* destination, const std::wstring& string) {
+		return Write(destination, string.c_str(), string.size() * sizeof(wchar_t) + sizeof(wchar_t));
 	}
-	return true;
+
+	void* Fill(void* destination, uint8_t value, size_t size) {
+		if (size == 0) {
+			return destination;
+		}
+		RegionUnlocker reg(destination, size);
+		memset(destination, value, size);
+		return reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(destination) + size);
+	}
+
+	std::string HexDump(const void* destination, size_t size) {
+		const char* dest = reinterpret_cast<const char*>(destination);
+		const char* arr = "0123456789ABCDEF";
+		std::string hex;
+		for (size_t i = 0; i < size; i++) {
+			hex += arr[HINIBBLE(dest[i])];
+			hex += arr[LONIBBLE(dest[i])];
+			hex += ' ';
+		}
+		hex.pop_back();
+		return hex;
+	}
+
+	std::wstring HexDumpW(const void* destination, size_t size) {
+		const char* dest = reinterpret_cast<const char*>(destination);
+		const wchar_t* arr = L"0123456789ABCDEF";
+		std::wstring hex;
+		for (size_t i = 0; i < size; i++) {
+			hex += arr[HINIBBLE(dest[i])];
+			hex += arr[LONIBBLE(dest[i])];
+			hex += ' ';
+		}
+		hex.pop_back();
+		return hex;
+	}
+
+	bool CheckReadableAddress(const void* address) {
+		MEMORY_BASIC_INFORMATION mbi;
+		VirtualQuery(address, &mbi, sizeof(mbi));
+		return mbi.Protect > 0x01;
+	}
+
+	bool CheckWritableAddress(const void* address) {
+		MEMORY_BASIC_INFORMATION mbi;
+		VirtualQuery(address, &mbi, sizeof(mbi));
+		return mbi.Protect == 0x04 || mbi.Protect == 0x08 || mbi.Protect == 0x40 || mbi.Protect == 0x80;
+	}
 }
-
-uintptr_t Memory::CalculateBaseAddress() {
-	HANDLE hpr = OpenProcess(PROCESS_ALL_ACCESS, FALSE, GetCurrentProcessId());
-	LPWSTR pname = new WCHAR[1024];
-	GetProcessImageFileNameW(hpr, pname, 1024);
-	std::wstring path = pname;
-	delete[] pname;
-	path = path.substr(path.find_last_of(L"/\\") + 1);
-	return (uintptr_t)GetModuleHandleW(path.c_str());
-}
-
-uintptr_t Memory::baseAddress = CalculateBaseAddress();
-

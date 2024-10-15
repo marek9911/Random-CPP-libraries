@@ -1,100 +1,79 @@
 ﻿#pragma once
-#ifndef CONSOLE_H
-#define CONSOLE_H
-#if __has_include("Ascii.h")
-#include "Ascii.h"
-#endif
-
-#define BLACK 0x0
-#define BLUE 0x1
-#define GREEN 0x2
-#define AQUA 0x3
-#define RED 0x4
-#define PURPLE 0x5
-#define YELLOW 0x6
-#define WHITE 0x7
-#define GRAY 0x8
-#define LIGHTBLUE 0x9
-#define LIGHTGREEN 0xA
-#define LIGHTAQUA 0xB
-#define LIGHTRED 0xC
-#define LIGHTPURPLE 0xD
-#define LIGHTYELLOW 0xE
-#define BRIGHTWHITE 0xF
-
-#define KB_ARROW_UP 296
-#define KB_ARROW_DOWN 304
-#define KB_ARROW_LEFT 299
-#define KB_ARROW_RIGHT 301
-#define KB_ESCAPE 27
-#define KB_ENTER 13
-#define KB_RETURN 13
-#define KB_SPACE 32
-#define KB_BACKSPACE 8
-#define KB_TAB 9
-
 #include <string>
-#ifdef _WIN32
-#include <tchar.h>
-#include <Windows.h>
-#else
 
-#endif
-
-class Console
+namespace console
 {
-	#ifdef _WIN32
-	public:
-		// Creates a new CMD window if its not created and redirects output to it (mostly for DLL injecting)
-		static void CreateNewConsole();
+	// Creates a new CMD window if its not created and redirects output to it (mostly for DLL injecting)
+	void CreateNewConsole();
 
-		// Changes an CMD foreground color
-		static void ChangeColor(int color);
+	// Changes an CMD foreground color
+	void ChangeColor(int color);
 
-		// Changes an CMD background color
-		static void ChangeColorB(int backgroudColor);
+	// Changes an CMD background color
+	void ChangeColorB(int backgroudColor);
 
-		// Changes a name of window
-		static void ChangeTitle(LPCTSTR title);
+	// Changes a name of window
+	void ChangeTitle(const std::string& title);
+	void ChangeTitle(const std::wstring& title);
 
-		// Sets a position where text will be outputted in CMD
-		static void SetCursorPos(short x, short y);
+	// Sets a position where text will be outputted in CMD
+	void SetCursorPos(short x, short y);
 
-		// Reads a single key press from user and returns int to ascii character
-		static int ReadKey();
+	// Reads a single key press from user and returns int to ascii character
+	int ReadKey();
 
-		// Reads keys asynchronously
-		static void AsyncReadKey(int* output, int* condition, int valueToStop);
+	// Non blockingly reads a key (for inifinte loops)
+	void AsyncReadKey(int* output, int* condition, int valueToStop);
 
-		// Breaks read key (or getch) function
-		static void BreakReadKey();
+	// Breaks read key (or getch) function
+	void BreakReadKey();
 
-		// Hides blinking cursor in CMD
-		static void HideCursor(bool hideCursor = true);
+	// Hides blinking cursor in CMD
+	void HideCursor(bool hideCursor = true);
 
-		// Hides a scroll bars on down and right side in CMD
-		static void HideScrollBars(bool hideScrollBars);
+	// Hides a scroll bars on down and right side in CMD
+	void HideScrollBars(bool hideScrollBars = true);
 
-		// Enables ANSI escape sequences in CMD on Windows 10 1511 and higher
-		static void EnableAnsiEscapeCodes();
+	// Enables ANSI escape sequences in CMD on Windows 10 1511 and higher
+	void EnableAnsiEscapeCodes();
 
-		// Enables UTF-8 I/O in CMD
-		static void EnableUTF8Output();
-		static void EnableUTF8Input();
+	// Enables UTF-8 I/O in CMD
+	void EnableUTF8Output();
+	void EnableUTF8Input();
 
-		// Enables WCHAR I/O in CMD
-		static void EnableWCHAROutput();
-		static void EnableWCHARInput();
+	// Enables WCHAR I/O in CMD
+	void EnableWCHAROutput();
+	void EnableWCHARInput();
 
-	private:
-		static HANDLE hConsole;
-		static short currentColor;
-		static short currentColorB;
-	#else
-	
-	#endif
-};
-#endif // CONSOLE_H
-
-
-
+	namespace colors
+	{
+		static constexpr short black = 0x0;
+		static constexpr short blue = 0x1;
+		static constexpr short green = 0x2;
+		static constexpr short aqua = 0x3;
+		static constexpr short red = 0x4;
+		static constexpr short purple = 0x5;
+		static constexpr short yellow = 0x6;
+		static constexpr short white = 0x7;
+		static constexpr short gray = 0x8;
+		static constexpr short lightBlue = 0x9;
+		static constexpr short lightGreen = 0xA;
+		static constexpr short lightAqua = 0xB;
+		static constexpr short lightRed = 0xC;
+		static constexpr short lightPurple = 0xD;
+		static constexpr short lightYellow = 0xE;
+		static constexpr short brightWhite = 0xF;
+	}
+	namespace keyboard
+	{
+		static constexpr int arrowUp = 296;
+		static constexpr int arrowDown = 304;
+		static constexpr int arrowLeft = 299;
+		static constexpr int arrowRight = 301;
+		static constexpr int escape = 27;
+		static constexpr int enter = 13;
+		static constexpr int space = 32;
+		static constexpr int backspace = 8;
+		static constexpr int tab = 9;
+	}
+}

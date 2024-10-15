@@ -1,164 +1,179 @@
 #pragma once
-#ifndef MEMORY_H
-#define MEMORY_H
-#include <vector>
-#include <Windows.h>
-#include <iostream>
+#include <string>
+#include <algorithm>
 
-#if __has_include("Console/Console.h")
-#include "Console/Console.h"
-#elif __has_include("Console.h")
-#include "Console.h"
+#ifndef _MSC_VER
+#error "This library is only compatible with MSVC"
 #endif
 
-/*#ifndef _DLL
-#error "This library only support DLL projects that are used for injecting"
-#endif*/
-
-// Uncomment macro under this line to print debug information (if enabled) using wide characters
-//#define MEMORY_WIDE_OUTPUT
-#ifndef MEMORY_WIDE_OUTPUT
-#define __tcout std::cout
-#define __tstr(x) x
-#define __tprintf printf
-#define __tvprinf vprintf
-typedef const char* __TCHAR;
-const unsigned int msgTypes[4] = { 0x5D2B5B, 0x5D3D5B, 0x5D1D5B, 0x5D215B };
-#else
-#define __tcout std::wcout
-#define __tstr(x) L##x
-#define __tprintf wprintf
-#define __tvprinf vwprintf
-typedef const wchar_t* __TCHAR;
-const unsigned long long msgTypes[4] = { 0x5D002B005B, 0x5D003D005B, 0x5D2194005B, 0x5D0021005B };
-#endif
-
-#define MEMORY_SHOW_DEBUG true
-#define MSG_OBJECT_NEW 0
-#define MSG_OBJECT_CHANGE 1
-#define MSG_OBJECT_MOVE 2
-#define MSG_OBJECT_FAIL 3
-
-// Basically a offset pointer that is used to calculate runtime pointer address (base address is added later to this type)
-typedef uintptr_t base_offset;
-
-// Returns a pointer to TYPE with base address added
-#define OFFSET(_type, _offset) ((_type)(Memory::GetBaseAddress() + (_offset)))
-
-class Memory
+// Calling convention
+enum class CConv : size_t
 {
-	public:
-		template <class T> class Object {
-			public:
-				// Creates pointer to any object in memory
-				Object(uintptr_t pointerAddress, std::vector<intptr_t> pointerOffsets, bool printDebug = false)
-				: defaultPointerAddress(pointerAddress), pointerOffsets(pointerOffsets), printDebug(printDebug) {
-					this->Refresh();
-				}
-
-				// Refreshes address of object pointer (returns 0 if address success)
-				bool Refresh() {
-					uintptr_t tempAddress = baseAddress + defaultPointerAddress;
-
-					for (size_t i = 0; i < pointerOffsets.size(); i++) {
-						if (!CheckReadableAddress(tempAddress)) {
-							tempAddress = (*(uintptr_t*)tempAddress) + pointerOffsets[i];
-						}
-						else {
-							PrintDebug(MSG_OBJECT_FAIL, __tstr("Memory object initialization failed: Address is not valid"));
-							return true;
-						}
-					}
-					if (!CheckWritableAddress(tempAddress)) {
-						PrintDebug(MSG_OBJECT_NEW, __tstr("New memory object has been attached to 0x%p"), (T*)tempAddress);
-						address = (T*)tempAddress;
-						return false;
-					}
-					PrintDebug(MSG_OBJECT_FAIL, __tstr("Memory object initialization failed: Address is not writable"));
-					return true;
-				}
-
-				// Changes value of object pointer (returns 0 if address success)
-				bool ChangeValue(T value) {
-					if (!CheckWritableAddress((uintptr_t)address)) {
-						PrintDebug(MSG_OBJECT_CHANGE, __tstr("Value of memory object at 0x%p has been changed"), address);
-						*address = value;
-						return false;
-					}
-					PrintDebug(MSG_OBJECT_FAIL, __tstr("Memory object value change failed: Address is not writable!"));
-					return true;
-				}
-
-				// Moves object pointer (refresh will return object pointer to default address) (returns 0 if address success)
-				bool Move(intptr_t offset) {
-					uintptr_t tempAddress = (uintptr_t)address;
-					tempAddress += offset;
-					if (!CheckWritableAddress(tempAddress)) {
-						PrintDebug(MSG_OBJECT_MOVE, __tstr("Memory object has been moved from 0x%p to 0x%p"), (T*)(tempAddress - offset), (T*)tempAddress);
-						address = (T*)tempAddress;
-						return false;
-					}
-					PrintDebug(MSG_OBJECT_FAIL, __tstr("Memory object move failed: Address is not writable!"));
-					return true;
-				}
-
-				// Returns value of object pointer
-				T GetValue() {
-					if (!CheckReadableAddress((uintptr_t)address)) {
-						return *address;
-					}
-					PrintDebug(MSG_OBJECT_FAIL, __tstr("Getting value from memory object failed: Address is not readable!"));
-					return NULL;
-				}
-
-				// Returns address of object pointer
-				uintptr_t GetAddress() {
-					return (uintptr_t)address;
-				}
-			private:
-				T* address;
-				const bool printDebug;
-				const uintptr_t defaultPointerAddress;
-				const std::vector<intptr_t> pointerOffsets;
-				void PrintDebug(int msgType, __TCHAR format, ...) {
-					if (printDebug) {
-						const unsigned int msgColors[4] = {0xA, 0xE, 0x9, 0xC};
-						va_list argptr;
-						va_start(argptr, format);
-						#ifdef CONSOLE_H
-						Console::ChangeColor(msgColors[msgType]);
-						#endif
-						__tprintf(__tstr("%s "), (__TCHAR)&msgTypes[msgType]);
-						#ifdef CONSOLE_H
-						Console::ChangeColor(WHITE);
-						#endif
-						__tvprinf(format, argptr);
-						__tprintf(__tstr("\n"));
-						va_end(argptr);
-					}
-				}
-		};
-		
-		// Returns base address of application
-		static uintptr_t GetBaseAddress();
-
-		// Hex write to address that may have read only access
-		static void HexWrite(uintptr_t pointerWithoutBase, const char* bytes, size_t size = 0, bool addBaseAddress = true);
-
-		// Fills memory that may have read only access with specified value 
-		static void Fill(uintptr_t pointerWithoutBase, uint8_t value, size_t size, bool addBaseAddress = true);
-
-		// Prints hex dump of address
-		static void hexDump(void* ptr, size_t size);
-
-		// Checks if given address is readable (returns 0 if address is readable)
-		static bool CheckReadableAddress(uintptr_t address);
-
-		// Checks if given address is writable (returns 0 if address is writable)
-		static bool CheckWritableAddress(uintptr_t address);
-
-	private:
-		static uintptr_t CalculateBaseAddress();
-		static uintptr_t baseAddress;
+	Cdecl,
+	Stdcall,
+	Thiscall,
+	Fastcall
 };
-#endif
+
+namespace memory
+{
+	template <typename R, typename... A>
+	struct RemoveCallConv
+	{
+		using Type = R(*)(A...);
+	};
+
+	template <typename R, typename... A>
+	struct RemoveCallConv<R(__cdecl*)(A...)>
+	{
+		using Type = R(*)(A...);
+	};
+
+	template <typename R, typename... A>
+	struct RemoveCallConv<R(__stdcall*)(A...)>
+	{
+		using Type = R(*)(A...);
+	};
+
+	template <typename R, typename... A>
+	struct RemoveCallConv<R(__thiscall*)(A...)>
+	{
+		using Type = R(*)(A...);
+	};
+
+	template <typename R, typename... A>
+	struct RemoveCallConv<R(__fastcall*)(A...)>
+	{
+		using Type = R(*)(A...);
+	};
+
+	// Removes calling convention from function pointer
+	template <typename R, typename... A>
+	using RemoveCallConvT = typename RemoveCallConv<R, A...>::Type;
+
+	struct PageInfo
+	{
+		void* region;
+		size_t size;
+		unsigned long pageProtection;
+	};
+
+	// RAII-style mechanism for unlocking and restoring memory regions within scope block
+	class RegionUnlocker
+	{
+		public:
+			RegionUnlocker(void* region, size_t size);
+			~RegionUnlocker();
+			const PageInfo pageInfo;
+	};
+
+	// Unlocks memory region for writing
+	PageInfo UnlockRegion(void* region, size_t size);
+
+	// Restores memory region protection
+	void RestoreRegion(const PageInfo& pageInfo);
+	
+	// Returns base address of application
+	void* GetBaseAddress();
+
+	// Writes to an address that may have read only access, returns a pointer to the end of written memory (destination + size) 
+	void* Write(void* destination, const void* source, size_t size);
+	void* Write(void* destination, const std::string& string);
+	void* Write(void* destination, const std::wstring& string);
+
+	// Fills memory that may have read only access with specified value, returns a pointer to the end of written memory (destination + size)
+	void* Fill(void* destination, uint8_t value, size_t size);
+	
+	// Return hex dump of address as string (uppercase two digits separated with spaces)
+	std::string HexDump(const void* destination, size_t size);
+	std::wstring HexDumpW(const void* destination, size_t size);
+
+	// Returns true if given address is readable
+	bool CheckReadableAddress(const void* address);
+
+	// Returns true if given address is writable
+	bool CheckWritableAddress(const void* address);
+
+	// Returns T with address of base + offset
+	template <typename T = void*>
+	T Offset(size_t offset) {
+		uintptr_t addr = reinterpret_cast<uintptr_t>(GetBaseAddress()) + offset;
+		return (T)addr; // C-style cast needed here
+	}
+
+	// Returns address of given function or class function as void*
+	template <typename Func>
+	void* FuncAddr(Func function) requires (std::is_function_v<std::remove_pointer_t<Func>> || std::is_member_function_pointer_v<Func>) {
+		return *reinterpret_cast<void**>(&function);
+	}
+	
+	// Write elements memory consecutively to address that may have read only access
+	template <typename... Args>
+	void* WriteElements(void* destination, const Args&... args) requires (sizeof...(args) > 0) {
+		void* destStep = destination;
+		((destStep = Write(destStep, &args, sizeof(args))), ...);
+		return destStep;
+	}
+
+	// Fill values to an address that may have read only access
+	template <typename T>
+	void* FillType(void* destination, T value, size_t numOfValues) {
+		RegionUnlocker reg(destination, numOfValues * sizeof(T));
+		return std::fill_n(reinterpret_cast<T*>(destination), numOfValues, value);
+	}
+
+	// Calls an arbitrary function at given address
+	template <typename RetType = void, CConv callingConvention = CConv::Cdecl, typename... Args>
+	RetType Call(void* functionAddress, Args... args) {
+		if constexpr (callingConvention == CConv::Thiscall) {
+			static_assert(sizeof...(Args) > 0, "Thiscall calling convention requires at least 1 argument: this pointer");
+		}
+
+		using FuncType = std::tuple_element_t<std::to_underlying(callingConvention), std::tuple<
+			RetType(__cdecl*)(Args...),
+			RetType(__stdcall*)(Args...),
+			RetType(__thiscall*)(Args...),
+			RetType(__fastcall*)(Args...)
+		>>;
+
+		FuncType func = reinterpret_cast<FuncType>(functionAddress);
+		return func(args...);
+	}
+
+	template <typename FuncSig, typename RetType, typename... Args>
+	class FuncPtrBase {};
+
+	template <typename FuncSig, typename RetType, typename... Args>
+	class FuncPtrBase<FuncSig, RetType(Args...)>
+	{
+		public:
+			FuncPtrBase(void* funcAddr)
+			: funcPtr(reinterpret_cast<FuncSig>(funcAddr)) {}
+
+			RetType operator()(Args... args) {
+				return this->funcPtr(args...);
+			}
+
+			const FuncSig funcPtr;
+	};
+
+	// Wrapper for custom type function pointers
+	template <typename FuncSig>
+	using FuncPtr = FuncPtrBase<FuncSig, std::remove_pointer_t<RemoveCallConvT<FuncSig>>>;
+};
+
+#define _MEM_PAD_CONCAT(a, b) a##b
+#define _MEM_PAD_CONCAT_EXPAND(a, b) _MEM_PAD_CONCAT(a, b)
+#define _MEM_PAD_RAND_NAME _MEM_PAD_CONCAT_EXPAND(memPad, __COUNTER__)
+
+// Pads a memory inside struct/class (use other versions of MEM_PAD to make the padded memory private inside public/protected/private access)
+#define MEM_PAD(bytes) uint8_t _MEM_PAD_RAND_NAME[bytes]
+#define MEM_PAD_PUB(bytes) private: MEM_PAD(bytes); public:
+#define MEM_PAD_PROT(bytes) private: MEM_PAD(bytes); protected:
+#define MEM_PAD_PRIV(bytes) private: MEM_PAD(bytes); private:
+
+// Please use memory::Offset() instead
+#define OFFSET(_type, _offset) (::memory::Offset<_type>((uintptr_t)(_offset)))
+
+// Auto size adapter for passing bytes inside string to memory::Write()
+#define STR_BYTES(str) (str), (sizeof(str) - 1)
