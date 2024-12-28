@@ -58,9 +58,13 @@ namespace memory
 	}
 
 	std::string HexDump(const void* destination, size_t size) {
+		if (size == 0) {
+			return {};
+		}
 		const char* dest = reinterpret_cast<const char*>(destination);
 		const char* arr = "0123456789ABCDEF";
 		std::string hex;
+		hex.reserve(size * 3 - 1);
 		for (size_t i = 0; i < size; i++) {
 			hex += arr[HINIBBLE(dest[i])];
 			hex += arr[LONIBBLE(dest[i])];
@@ -71,9 +75,13 @@ namespace memory
 	}
 
 	std::wstring HexDumpW(const void* destination, size_t size) {
+		if (size == 0) {
+			return {};
+		}
 		const char* dest = reinterpret_cast<const char*>(destination);
 		const wchar_t* arr = L"0123456789ABCDEF";
 		std::wstring hex;
+		hex.reserve(size * 3 - 1);
 		for (size_t i = 0; i < size; i++) {
 			hex += arr[HINIBBLE(dest[i])];
 			hex += arr[LONIBBLE(dest[i])];

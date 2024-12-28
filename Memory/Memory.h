@@ -12,7 +12,8 @@ enum class CConv : size_t
 	Cdecl,
 	Stdcall,
 	Thiscall,
-	Fastcall
+	Fastcall,
+	Vectorcall
 };
 
 namespace memory
@@ -23,6 +24,7 @@ namespace memory
 		using Type = R(*)(A...);
 	};
 
+	#ifndef _WIN64 
 	template <typename R, typename... A>
 	struct RemoveCallConv<R(__cdecl*)(A...)>
 	{
@@ -43,6 +45,13 @@ namespace memory
 
 	template <typename R, typename... A>
 	struct RemoveCallConv<R(__fastcall*)(A...)>
+	{
+		using Type = R(*)(A...);
+	};
+	#endif
+	
+	template <typename R, typename... A>
+	struct RemoveCallConv<R(__vectorcall*)(A...)>
 	{
 		using Type = R(*)(A...);
 	};
@@ -133,7 +142,8 @@ namespace memory
 			RetType(__cdecl*)(Args...),
 			RetType(__stdcall*)(Args...),
 			RetType(__thiscall*)(Args...),
-			RetType(__fastcall*)(Args...)
+			RetType(__fastcall*)(Args...),
+			RetType(__vectorcall*)(Args...)
 		>>;
 
 		FuncType func = reinterpret_cast<FuncType>(functionAddress);
