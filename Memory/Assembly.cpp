@@ -1,18 +1,91 @@
 #include "Assembly.h"
+#ifdef _WIN64
+#include <Windows.h>
+#include <vector>
 
-static void* CalculateCallAddress(void* from, void* to) {
+namespace jumpTable 
+{
+	struct PageInfo
+	{
+		void* begin;
+		void* end;
+		size_t freeSpace;
+	};
+	std::vector<PageInfo> pages;
+
+	void* TryAllocatePage(void* address, size_t pageSize) {
+		MEMORY_BASIC_INFORMATION mbi;
+		if (VirtualQuery(address, &mbi, sizeof(mbi))) {
+			if (mbi.State == MEM_FREE) {
+				void* allocated = VirtualAlloc(mbi.BaseAddress, pageSize, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READ);
+				if (allocated) {
+					return allocated;
+				}
+			}
+		}
+		return nullptr;
+	}
+
+	PageInfo AllocatePageCloseTo(void* addrCloseTo) {
+		SYSTEM_INFO sysInfo;
+		GetSystemInfo(&sysInfo);
+
+		uintptr_t alignedAddr = reinterpret_cast<uintptr_t>(addrCloseTo);
+		alignedAddr -= alignedAddr % sysInfo.dwPageSize;
+		alignedAddr += sysInfo.dwPageSize;
+		int direction = 1;
+		int offset = 0;
+		while (true) {
+			void* pageAddr = TryAllocatePage(reinterpret_cast<void*>(alignedAddr), sysInfo.dwPageSize);
+			if (pageAddr) {
+				return PageInfo{
+					.begin = pageAddr,
+					.end = reinterpret_cast<char*>(pageAddr) + sysInfo.dwPageSize,
+					.freeSpace = sysInfo.dwPageSize,
+				};
+			}
+			++offset;
+			direction *= -1;
+			alignedAddr += static_cast<int>(sysInfo.dwPageSize) * (offset * direction);
+		}
+	}
+
+	void* GetMemCloseTo(void* address, size_t size) {
+		if (pages.empty() || pages.back().freeSpace < size) {
+			pages.push_back(AllocatePageCloseTo(address));
+		}
+		auto& pageInfo = pages.back();
+		pageInfo.freeSpace -= size;
+		return reinterpret_cast<char*>(pageInfo.end) - pageInfo.freeSpace - size;
+	}
+
+	void* PlaceJumpTo(void* from, void* to) {
+		void* closeAddr = GetMemCloseTo(from, 14);
+		memory::WriteElements(closeAddr, '\xFF', '\x25', 0, to);
+		return closeAddr;
+	}
+}
+#endif
+
+static uint32_t CalculateCallAddress(void* from, void* to) {
 	uintptr_t calculatedAddr = reinterpret_cast<uintptr_t>(to) - reinterpret_cast<uintptr_t>(from) - 5;
-	return reinterpret_cast<void*>(calculatedAddr);
+	return static_cast<uint32_t>(calculatedAddr);
 }
 
 namespace assembly
 {
 	void* PlaceCall(void* destination, void* addressToCall, size_t nopGapSize) {
+		#ifdef _WIN64
+		addressToCall = jumpTable::PlaceJumpTo(destination, addressToCall);
+		#endif
 		void* destStep = memory::WriteElements(destination, '\xE8', CalculateCallAddress(destination, addressToCall));
 		return NopFill(destStep, nopGapSize);
 	}
 
 	void* PlaceJump(void* destination, void* addressToJump, size_t nopGapSize) {
+		#ifdef _WIN64
+		addressToJump = jumpTable::PlaceJumpTo(destination, addressToJump);
+		#endif
 		void* destStep = memory::WriteElements(destination, '\xE9', CalculateCallAddress(destination, addressToJump));
 		return NopFill(destStep, nopGapSize);
 	}
@@ -21,6 +94,7 @@ namespace assembly
 		return memory::Fill(toPlace, '\x90', howMany);
 	}
 
+	#ifndef _WIN64
 	void RawCallDynamic(void* addressToCall, int callConvention, void* returnVariable, int returnType, int parametersSize, void* parameters) {
 		int* aStart = (int*)parameters - 1;
 		int* aEnd = (int*)((uintptr_t)aStart + parametersSize);
@@ -151,4 +225,5 @@ namespace assembly
 	void RawCall(void* addressToCall, int callConvention, void* returnVariable, int returnType, int parametersSize, ...) {
 		RawCallDynamic(addressToCall, callConvention, returnVariable, returnType, parametersSize, &parametersSize + 1);
 	}
+	#endif
 }
